@@ -19,7 +19,7 @@ Replacing all instances of the string `APPLE` (case-sensitive) with the string `
 
 ```kt
 bloom {
-  replaceToken("APPLE", "BANANA")
+  replacement("APPLE", "BANANA")
 }
 ```
 
@@ -30,7 +30,7 @@ Replacing all instances of the string `APPLE` (case-sensitive) with the string `
 ```kt
 bloom {
   val constantsFile = "src/main/java/org/example/application/Constants.java"
-  replaceToken("APPLE", "BANANA", constantsFile)
+  replacement("APPLE", "BANANA", constantsFile)
 }
 ```
 
