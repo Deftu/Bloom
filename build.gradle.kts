@@ -2,6 +2,8 @@ plugins {
     kotlin("jvm") version("2.0.0")
     `java-gradle-plugin`
     `maven-publish`
+
+    id("dev.deftu.gradle.bloom") version("0.1.0")
 }
 
 group = "dev.deftu"
@@ -12,6 +14,12 @@ java.withSourcesJar()
 repositories {
     mavenCentral()
     mavenLocal()
+}
+
+bloom {
+    replacement("@PROJECT_NAME@", project.name)
+    replacement("@PROJECT_VERSION@", project.version.toString())
+    replacement("@SECRET@", "haha no fuck you")
 }
 
 dependencies {

@@ -1,5 +1,7 @@
 package dev.deftu.gradle.bloom
 
+import java.io.Serializable
+
 interface BloomExtension {
 
     /**
@@ -16,7 +18,11 @@ interface BloomExtension {
         val token: String,
         val replacement: Any,
         val path: String?
-    )
+    ) : Serializable {
+
+
+
+    }
 
     val isDisabled: Boolean
     val disabledFiles: List<String>

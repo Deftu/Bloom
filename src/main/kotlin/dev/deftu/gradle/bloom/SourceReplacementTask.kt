@@ -2,138 +2,174 @@ package dev.deftu.gradle.bloom
 
 import com.google.common.io.Files
 import org.gradle.api.DefaultTask
+import org.gradle.api.Project
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.SourceDirectorySet
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.SkipWhenEmpty
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.compile.AbstractCompile
 import org.gradle.api.tasks.util.PatternSet
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import java.io.File
 
-class SourceReplacementTask(
-    val bloom: BloomPlugin
-) : DefaultTask() {
+open class SourceReplacementTask : DefaultTask() {
 
     companion object {
 
-        private fun createTask(
-            bloom: BloomPlugin,
+        const val BASE_NAME = "bloomReplace"
+
+        @JvmStatic
+        fun createJavaTask(
+            project: Project,
+            extension: BloomExtension,
+            sourceSet: SourceSet,
+            name: String
+        ): SourceReplacementTask {
+            val compileTaskName = if (sourceSet.name == "main") "compileJava" else "compile${sourceSet.name.capitalize()}Java"
+            return create(project, extension, name, sourceSet.java, "bloom/${sourceSet.name}/java", compileTaskName)
+        }
+
+        @JvmStatic
+        fun createExtendedTask(
+            project: Project,
+            extension: BloomExtension,
+            sourceSet: SourceSet,
+            name: String,
+            extensionName: String
+        ): SourceReplacementTask {
+            val sourceSetExtension = sourceSet.extensions.getByName(extensionName)
+            check(sourceSetExtension is SourceDirectorySet) { "Source set extension ($extensionName) is not a SourceDirectorySet (${sourceSetExtension::class.java.name})" }
+            val compileTaskName = if (sourceSet.name == "main") "compile${extensionName.capitalize()}" else "compile${sourceSet.name.capitalize()}${extensionName.capitalize()}"
+            return create(project, extension, name, sourceSetExtension, "bloom/${sourceSet.name}/$extensionName", compileTaskName)
+        }
+
+        private fun create(
+            project: Project,
+            extension: BloomExtension,
             name: String,
             sourceSet: SourceDirectorySet,
             directory: String,
             compileTaskName: String
         ): SourceReplacementTask {
-            val project = bloom.project
-            val outputDirectory = File(project.layout.buildDirectory.get().asFile, directory)
-            val task = project.tasks.register(name, SourceReplacementTask::class.java) { task ->
-                task.group = "bloom"
-                task.input = sourceSet
-                task.output = outputDirectory
-            }
+            val outputDirectory = project.layout.buildDirectory.get().asFile.resolve(directory)
+            return project.tasks.register(name, SourceReplacementTask::class.java) { task ->
+                task.group = BloomPlugin.PROJECT_NAME.lowercase()
 
-            project.tasks.named(compileTaskName).configure { task ->
-                task.dependsOn(task)
-                if (task is AbstractCompile) {
-                    task.setSource(outputDirectory)
-                } else {
-                    // Else assume Kotlin 1.7+
-                    try {
-                        val abstractKotlinCompileTool =
-                            Class.forName("org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompileTool")
-                        val sourceFilesField = abstractKotlinCompileTool.getDeclaredField("sourceFiles")
-                        sourceFilesField.isAccessible = true
-                        val sourceFiles = sourceFilesField[task] as ConfigurableFileCollection
-                        sourceFiles.setFrom(outputDirectory)
-                    } catch (ex: ReflectiveOperationException) {
-                        throw RuntimeException(ex)
+                task.disabled = extension.isDisabled
+                task.disabledFiles = extension.disabledFiles
+                task.allowedFiles = extension.allowedFiles
+                task.replacements = extension.replacements
+
+                task.input = sourceSet
+                task.outputDirectory.set(outputDirectory)
+            }.get().also { task ->
+
+                project.tasks.named(compileTaskName).configure { compileTask ->
+                    compileTask.dependsOn(task)
+                    if (compileTask is AbstractCompile) {
+                        compileTask.setSource(outputDirectory)
+                    } else {
+                        // Else assume Kotlin 1.7+
+                        try {
+                            val abstractKotlinCompileTool =
+                                Class.forName("org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompileTool")
+                            val sourceFilesField = abstractKotlinCompileTool.getDeclaredField("sourceFiles")
+                            sourceFilesField.isAccessible = true
+                            val sourceFiles = sourceFilesField[compileTask] as ConfigurableFileCollection
+                            sourceFiles.setFrom(outputDirectory)
+                        } catch (ex: ReflectiveOperationException) {
+                            throw RuntimeException(ex)
+                        }
                     }
                 }
+
             }
-
-            return task.get()
-        }
-
-        @JvmStatic
-        fun createJavaTask(bloom: BloomPlugin, sourceSet: SourceSet): SourceReplacementTask =
-            createTask(bloom, "bloomReplaceJava", sourceSet.java, "sources/java", "compileJava")
-
-        @JvmStatic
-        fun createKotlinTask(bloom: BloomPlugin, sourceSet: SourceSet): SourceReplacementTask {
-            val kotlinSourceSet = bloom.project.extensions.getByType(KotlinJvmProjectExtension::class.java).sourceSets.getByName(sourceSet.name).kotlin
-            return createTask(bloom, "bloomReplaceKotlin", kotlinSourceSet, "sources/kotlin", "compileKotlin")
         }
 
     }
 
+    @Input
+    var disabled: Boolean = false
+
+    @InputFiles
+    var disabledFiles: List<String> = emptyList()
+
+    @InputFiles
+    var allowedFiles: List<String> = emptyList()
+
+    @Input
+    var replacements: List<BloomExtension.ReplacementInfo> = emptyList()
+
+    @InputFiles
+    @SkipWhenEmpty
     var input: SourceDirectorySet? = null
-    var output: File? = null
+
+    @OutputDirectory
+    val outputDirectory: DirectoryProperty = project.objects.directoryProperty()
 
     @TaskAction
-    fun run() {
-        if (input == null) throw NullPointerException("Input source directory set is null")
-        if (output == null) throw NullPointerException("Output directory is null")
-
-        val input = input!!
-        var output = output!!
-
-        val pattern = PatternSet()
-        pattern.setIncludes(input.includes)
-        pattern.setExcludes(input.excludes)
-
-        if (output.exists()) output.deleteRecursively()
-        output.mkdirs()
-        output = output.canonicalFile
-        this.output = output
-
-        val extensions = bloom.getExtensions()
-        val isGlobalReplacementDisabled = extensions.any(BloomExtension::isDisabled)
-        val disabledFiles = extensions.flatMap(BloomExtension::disabledFiles)
-        val allowedFiles = extensions.flatMap(BloomExtension::allowedFiles)
-        val replacements = extensions.flatMap(BloomExtension::replacements)
+    fun handle() {
         if (replacements.isEmpty()) {
             logger.debug("No replacements to make")
             return
         }
 
-        for (dirTree in input.srcDirTrees) {
-            val dir = dirTree.dir
-            if (!dir.exists() || !dir.isDirectory) {
-                logger.debug("Skipping invalid directory: {}", dir)
+        checkNotNull(input) { "Input source directory set is null" }
+        val input = input!!
+        check(outputDirectory.isPresent) { "Output directory is not set" }
+        val outputDirectory = outputDirectory.asFile.get().canonicalFile
+
+        val pattern = PatternSet()
+        pattern.setIncludes(input.includes)
+        pattern.setExcludes(input.excludes)
+
+        if (outputDirectory.exists()) outputDirectory.deleteRecursively()
+        else check(outputDirectory.mkdirs()) { "Failed to create output directory" }
+
+        for (tree in input.srcDirTrees) {
+            val sourceDir = tree.dir.canonicalFile
+            if (!sourceDir.exists() || !sourceDir.isDirectory) {
+                logger.debug("Skipping invalid directory: {}", sourceDir)
                 continue
             }
 
-            val canonicalDir = dir.canonicalFile
-            val tree = project.fileTree(canonicalDir).matching(input.filter).matching(pattern)
-            for (file in tree) {
-                val dest = file.getDestination(canonicalDir, output)
-                if (
-                    disabledFiles.contains(dest.canonicalPath) ||
-                    (!allowedFiles.contains(dest.canonicalPath) && isGlobalReplacementDisabled)
-                ) {
-                    logger.debug("Skipping file: {}", dest)
-                    continue
-                }
+            val fileTree = project.fileTree(sourceDir).matching(input.filter).matching(pattern)
+            for (file in fileTree) {
+                logger.lifecycle("[$name] Processing file: $file - Output: $outputDirectory")
 
-                dest.parentFile?.mkdirs()
-                dest.createNewFile()
+                val outputtedFile = file.getDestination(sourceDir, outputDirectory)
+                logger.lifecycle("Outputted file: {}", outputtedFile)
+                if (
+                    disabledFiles.contains(outputtedFile.canonicalPath) ||
+                    (!allowedFiles.contains(outputtedFile.canonicalPath) && disabled)
+                ) {
+                    logger.lifecycle("Skipping file: {}", outputtedFile)
+                    continue
+                } else logger.lifecycle("Processing file: {}", outputtedFile)
+
+                outputtedFile.parentFile.mkdirs()
+                outputtedFile.createNewFile()
 
                 var content = Files.asCharSource(file, Charsets.UTF_8).read()
                 var isModified = false
                 for (replacement in replacements) {
-                    if (replacement.path != null && replacement.path != dest.canonicalPath) continue
+                    if (replacement.path != null && replacement.path != outputtedFile.canonicalPath) continue
 
+                    logger.lifecycle("Replacing '{}' with '{}'", replacement.token, replacement.replacement)
                     content = content.replace(replacement.token, replacement.replacement.toString())
                     isModified = true
                 }
 
-                val finalPath = file.getFinalFilePath()
                 if (isModified) {
-                    logger.debug("Writing to file: {}", finalPath)
-                    Files.asCharSink(dest, Charsets.UTF_8).write(content)
+                    logger.lifecycle("Writing to file: {}", outputtedFile)
+                    Files.asCharSink(outputtedFile, Charsets.UTF_8).write(content)
                 } else {
-                    logger.debug("Copying file: {}", finalPath)
-                    @Suppress("UnstableApiUsage") Files.copy(file, dest)
+                    logger.lifecycle("Copying file: {}", outputtedFile)
+                    @Suppress("UnstableApiUsage") Files.copy(file, outputtedFile)
                 }
             }
         }
@@ -141,13 +177,6 @@ class SourceReplacementTask(
 
     private fun File.getDestination(directory: File, output: File): File {
         return File(output, canonicalPath.replace(directory.canonicalPath, ""))
-    }
-
-    private fun File.getFinalFilePath(): String {
-        val path = path.replace(project.projectDir.path, "").replace('\\', '/')
-        if (path.startsWith("/")) return path.substring(1)
-
-        return path
     }
 
 }

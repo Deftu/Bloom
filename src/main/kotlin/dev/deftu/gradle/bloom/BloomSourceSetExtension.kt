@@ -1,12 +1,6 @@
 package dev.deftu.gradle.bloom
 
-/**
- * The project-wide extension for Bloom, which can be configured in the `bloom` block in the `build.gradle.kts` file.
- *
- * @since 0.1.0
- * @author Deftu
- */
-open class BloomProjectExtension(val bloom: BloomPlugin) : BloomExtension {
+open class BloomSourceSetExtension(val bloom: BloomPlugin) : BloomExtension {
 
     final override var isDisabled = false
         private set

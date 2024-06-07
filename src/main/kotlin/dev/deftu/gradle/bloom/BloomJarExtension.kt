@@ -1,8 +1,8 @@
 package dev.deftu.gradle.bloom
 
-class BloomJarExtension(val bloom: BloomPlugin) : BloomExtension {
+open class BloomJarExtension(val bloom: BloomPlugin) : BloomExtension {
 
-    override var isDisabled = false
+    final override var isDisabled = false
         private set
     override val disabledFiles = mutableListOf<String>()
     override val allowedFiles = mutableListOf<String>()
