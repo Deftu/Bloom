@@ -1,48 +1,65 @@
 plugins {
-  id("java-gradle-plugin")
-  id("com.gradle.plugin-publish")
-  id("net.kyori.indra")
-  id("net.kyori.indra.license-header")
-  id("net.kyori.indra.publishing.gradle-plugin")
-  id("net.kyori.indra.checkstyle")
+    kotlin("jvm") version("2.0.0")
+    `java-gradle-plugin`
+    `maven-publish`
 }
 
-group = "net.kyori"
-version = "1.3.2-SNAPSHOT"
-description = "Gradle plugin for performing source code token replacements in Java, Kotlin, Scala, and Groovy based projects"
+group = "dev.deftu"
+version = "0.1.0"
+
+java.withSourcesJar()
 
 repositories {
-  mavenCentral()
-  gradlePluginPortal()
+    mavenCentral()
+    mavenLocal()
 }
 
 dependencies {
-  implementation(libs.mammoth)
-  implementation(libs.guava)
-  implementation(libs.kotlinGradlePluginApi)
-  compileOnly(libs.checkerQual)
-  checkstyle(libs.stylecheck)
+    implementation(kotlin("gradle-plugin"))
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin-api:2.0.0")
+    implementation("com.google.guava:guava:30.1.1-jre")
 }
 
-indra {
-  javaVersions {
-    target(8)
-    testWith(8, 11, 17)
-  }
-  github("KyoriPowered", "blossom")
+gradlePlugin {
+    plugins {
+        register("bloom") {
+            id = "dev.deftu.gradle.bloom"
+            implementationClass = "dev.deftu.gradle.bloom.BloomPlugin"
+        }
+    }
 }
 
-license {
-  exclude("**/net/kyori/blossom/task/SourceReplacementTask.java")
-}
+publishing {
+    val publishingUsername: String? = run {
+        return@run project.findProperty("deftu.publishing.username")?.toString() ?: System.getenv("DEFTU_PUBLISHING_USERNAME")
+    }
 
-indraPluginPublishing {
-  plugin(
-    "blossom",
-    "net.kyori.blossom.Blossom",
-    "blossom",
-    project.description,
-    listOf("blossom", "replacement")
-  )
-  website("https://github.com/KyoriPowered/blossom")
+    val publishingPassword: String? = run {
+        return@run project.findProperty("deftu.publishing.password")?.toString() ?: System.getenv("DEFTU_PUBLISHING_PASSWORD")
+    }
+
+    repositories {
+        mavenLocal()
+        if (publishingUsername != null && publishingPassword != null) {
+            fun MavenArtifactRepository.applyCredentials() {
+                authentication.create<BasicAuthentication>("basic")
+                credentials {
+                    username = publishingUsername
+                    password = publishingPassword
+                }
+            }
+
+            maven {
+                name = "DeftuReleases"
+                url = uri("https://maven.deftu.dev/releases")
+                applyCredentials()
+            }
+
+            maven {
+                name = "DeftuSnapshots"
+                url = uri("https://maven.deftu.dev/snapshots")
+                applyCredentials()
+            }
+        }
+    }
 }
