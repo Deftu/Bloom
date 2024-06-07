@@ -7,7 +7,7 @@ Apply the plugin to your project.
 
 ```kt
 plugins {
-  id("dev.deftu.bloom") version "0.1.0"
+  id("dev.deftu.gradle.bloom") version "0.1.0"
 }
 ```
 
