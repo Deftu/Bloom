@@ -34,4 +34,8 @@ bloom {
 }
 ```
 
+### But... why fork?
+
+To put it simply, I feel like the new Blossom 2.x.x version is too bloated, slow and abstracts way too far off of the basic functionality it should provide. I also feel as though the maintainers were oftentimes rude, unprofessional and unhelpful. Updates and fixes were non-existant, despite the willingness of the community (specifically me and a few others) to contribute and aide in maintaining it. Pull requests were left open for weeks to months at a time, instead users were met with a "don't use it" attitude. I'm not here to bash the maintainers, but I am here to provide a better alternative to the new Blossom plugin.
+
 [lgpl]: https://choosealicense.com/licenses/lgpl-3/
