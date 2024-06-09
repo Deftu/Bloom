@@ -139,17 +139,14 @@ open class SourceReplacementTask : DefaultTask() {
 
             val fileTree = project.fileTree(sourceDir).matching(input.filter).matching(pattern)
             for (file in fileTree) {
-                logger.lifecycle("[$name] Processing file: $file - Output: $outputDirectory")
-
                 val outputtedFile = file.getDestination(sourceDir, outputDirectory)
-                logger.lifecycle("Outputted file: {}", outputtedFile)
                 if (
                     disabledFiles.contains(outputtedFile.canonicalPath) ||
                     (!allowedFiles.contains(outputtedFile.canonicalPath) && disabled)
                 ) {
-                    logger.lifecycle("Skipping file: {}", outputtedFile)
+                    logger.debug("Skipping file: {}", outputtedFile)
                     continue
-                } else logger.lifecycle("Processing file: {}", outputtedFile)
+                } else logger.debug("Processing file: {}", outputtedFile)
 
                 outputtedFile.parentFile.mkdirs()
                 outputtedFile.createNewFile()
@@ -159,16 +156,15 @@ open class SourceReplacementTask : DefaultTask() {
                 for (replacement in replacements) {
                     if (replacement.path != null && replacement.path != outputtedFile.canonicalPath) continue
 
-                    logger.lifecycle("Replacing '{}' with '{}'", replacement.token, replacement.replacement)
                     content = content.replace(replacement.token, replacement.replacement.toString())
                     isModified = true
                 }
 
                 if (isModified) {
-                    logger.lifecycle("Writing to file: {}", outputtedFile)
+                    logger.debug("Writing to file: {}", outputtedFile)
                     Files.asCharSink(outputtedFile, Charsets.UTF_8).write(content)
                 } else {
-                    logger.lifecycle("Copying file: {}", outputtedFile)
+                    logger.debug("Copying file: {}", outputtedFile)
                     @Suppress("UnstableApiUsage") Files.copy(file, outputtedFile)
                 }
             }

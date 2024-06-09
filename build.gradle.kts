@@ -3,11 +3,11 @@ plugins {
     `java-gradle-plugin`
     `maven-publish`
 
-    id("dev.deftu.gradle.bloom") version("0.1.0")
+    id("dev.deftu.gradle.bloom") version("0.1.1")
 }
 
 group = "dev.deftu"
-version = "0.1.0"
+version = "0.1.1"
 
 java.withSourcesJar()
 
@@ -19,7 +19,6 @@ repositories {
 bloom {
     replacement("@PROJECT_NAME@", project.name)
     replacement("@PROJECT_VERSION@", project.version.toString())
-    replacement("@SECRET@", "haha no fuck you")
 }
 
 dependencies {

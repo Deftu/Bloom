@@ -20,7 +20,25 @@ interface BloomExtension {
         val path: String?
     ) : Serializable {
 
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
 
+            other as ReplacementInfo
+
+            if (token != other.token) return false
+            if (replacement != other.replacement) return false
+            if (path != other.path) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = token.hashCode()
+            result = 31 * result + replacement.hashCode()
+            result = 31 * result + (path?.hashCode() ?: 0)
+            return result
+        }
 
     }
 
