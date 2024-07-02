@@ -3,7 +3,7 @@ plugins {
     `java-gradle-plugin`
     `maven-publish`
 
-    id("dev.deftu.gradle.bloom") version("0.1.1")
+    id("dev.deftu.gradle.bloom") version("0.1.2")
 }
 
 group = "dev.deftu"
