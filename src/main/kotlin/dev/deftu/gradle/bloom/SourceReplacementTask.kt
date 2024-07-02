@@ -113,22 +113,46 @@ open class SourceReplacementTask : DefaultTask() {
 
     @TaskAction
     fun handle() {
-        if (replacements.isEmpty()) {
-            logger.debug("No replacements to make")
-            return
-        }
-
         checkNotNull(input) { "Input source directory set is null" }
         val input = input!!
         check(outputDirectory.isPresent) { "Output directory is not set" }
         val outputDirectory = outputDirectory.asFile.get().canonicalFile
 
+        if (outputDirectory.exists()) outputDirectory.deleteRecursively()
+        else check(outputDirectory.mkdirs()) { "Failed to create output directory" }
+
+        if (replacements.isEmpty()) {
+            logger.debug("No replacements to make, copying files instead")
+            for (tree in input.srcDirTrees) {
+                val sourceDir = tree.dir.canonicalFile
+                if (!sourceDir.exists() || !sourceDir.isDirectory) {
+                    logger.debug("[COPY] Skipping invalid directory: {}", sourceDir)
+                    continue
+                }
+
+                val fileTree = project.fileTree(sourceDir).matching(input.filter)
+                for (file in fileTree) {
+                    val outputtedFile = file.getDestination(sourceDir, outputDirectory)
+                    if (
+                        disabledFiles.contains(outputtedFile.canonicalPath) ||
+                        (!allowedFiles.contains(outputtedFile.canonicalPath) && disabled)
+                    ) {
+                        logger.debug("[COPY] Skipping file: {}", outputtedFile)
+                        continue
+                    } else logger.debug("[COPY] Copying file: {}", outputtedFile)
+
+                    outputtedFile.parentFile.mkdirs()
+                    outputtedFile.createNewFile()
+                    @Suppress("UnstableApiUsage") Files.copy(file, outputtedFile)
+                }
+            }
+
+            return
+        }
+
         val pattern = PatternSet()
         pattern.setIncludes(input.includes)
         pattern.setExcludes(input.excludes)
-
-        if (outputDirectory.exists()) outputDirectory.deleteRecursively()
-        else check(outputDirectory.mkdirs()) { "Failed to create output directory" }
 
         for (tree in input.srcDirTrees) {
             val sourceDir = tree.dir.canonicalFile
