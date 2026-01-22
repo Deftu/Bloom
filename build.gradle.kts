@@ -3,11 +3,11 @@ plugins {
     `java-gradle-plugin`
     `maven-publish`
 
-    id("dev.deftu.gradle.bloom") version("0.1.2")
+    id("dev.deftu.gradle.bloom") version("0.2.0")
 }
 
 group = "dev.deftu"
-version = "0.1.2"
+version = "0.2.0"
 
 java.withSourcesJar()
 
